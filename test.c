@@ -32,9 +32,19 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count) {
 	}
 	else {
 		execlp("gcc", "gcc", user_program, NULL);
+		exit(0);
+	}
+	if (fork() > 0) {
+		wait(NULL);
+	}
+	else {
+		execlp("gcc", "gcc", "checker_byte.c", "-o", "checker_byte", NULL);
+		exit(0);
 	}
 	char *path = malloc((strlen(way_to_test) + 10) * sizeof(char));
 	for (int i = 1; i <= test_count; i++) {
+		int fd_1[2], fd_2[2];
+		pipe(fd_1);
 		if (fork() > 0) {
 			wait(NULL);
 		}
@@ -42,8 +52,30 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count) {
 			sprintf(path, "%s/%02d.dat\0", way_to_test, i);
 			int read_file = open(path, O_RDONLY, S_IRUSR | S_IWUSR);
 			dup2(read_file, 0);
+			dup2(fd_1[1], 1);
+			close(fd_1[0]), close(fd_1[1]);
 			execlp("./a.out", "./a.out", NULL);
 		}
+		pipe(fd_2);
+		if (fork() > 0) {
+			close(fd_1[0]), close(fd_1[1]);
+			wait(NULL);
+			close(fd_2[1]);
+		}
+		else {
+			dup2(fd_1[0], 0);
+			dup2(fd_2[1], 1);
+			close(fd_1[0]), close(fd_1[1]), close(fd_2[0]), close(fd_2[1]);
+			sprintf(path, "%s/%02d.ans\0", way_to_test, i);
+			if (execlp("./checker_byte", "./checker_byte", path, NULL) < 0){
+				exit(EXIT_FAILURE);
+			}
+		}
+		char tmp;
+		while (read(fd_2[0], &tmp, 1) > 0) {
+			putchar(tmp);
+		}
+		close(fd_2[0]);
 	}
 	free(path);
 	return 0;
@@ -57,6 +89,6 @@ int main(int argc, char **argv) {
 	int test_count = 3, check_style = 0;
 	set_config(argv[2], &test_count, &check_style);
 	test_user_problem(argv[1], argv[2], test_count);
-	
+		
 	return 0;
 }
