@@ -8,11 +8,21 @@
 #include <stdio.h>
 #include <signal.h>
 
-int set_config(int *test_count, int *check_style) {
-	int fconfig = open("problem.cfg", O_RDONLY, S_IRUSR | S_IWUSR);
-	close(fconfig);
-	*test_count = 1;
+int set_config(char *way_to_test, int *test_count, int *check_style) {
+	char *path = malloc((strlen(way_to_test) + 20) * sizeof(char));
+	sprintf(path, "%s/problem.cfg\0", way_to_test);
+	int fconfig = open(path, O_RDONLY, S_IRUSR | S_IWUSR);
+	char number[4], tmp;
+	for (int i = 0; i < 6; i++) {
+		read(fconfig, &tmp, 1);
+	}
+	for (int i = 0; i < 4; i++) {
+		read(fconfig, number + i, 1);
+	}
+	*test_count = atoi(number);
 	*check_style = 0;
+	free(path);
+	close(fconfig);
 	return 0;
 }
 
@@ -45,7 +55,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	int test_count = 3, check_style = 0;
-	//set_config(&test_count, &check_style);
+	set_config(argv[2], &test_count, &check_style);
 	test_user_problem(argv[1], argv[2], test_count);
 	
 	return 0;
