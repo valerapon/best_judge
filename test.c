@@ -53,6 +53,7 @@ int set_checker(int fconfig) {
 		}
 		return 0;
 	}
+	return 0;
 }
 
 int set_tests(int fconfig) {
@@ -81,12 +82,12 @@ int set_tests(int fconfig) {
 }
 
 int set_config(char *way_to_test, int *test_count, int *check_style) {
-	char *path = malloc((strlen(way_to_test) + 20) * sizeof(char)), array[14], tmp;
+	char *path = malloc((strlen(way_to_test) + 20) * sizeof(char));
 	if (path == NULL) {
 		make_config_problem();
 	}
-	sprintf(path, "%s/problem.cfg\0", way_to_test);
-	int fconfig = open(path, O_RDONLY, S_IRUSR | S_IWUSR), count = 0;
+	sprintf(path, "%s/problem.cfg", way_to_test);
+	int fconfig = open(path, O_RDONLY, S_IRUSR | S_IWUSR);
 	if (fconfig < 0) {
 		make_config_problem();
 	}
@@ -104,12 +105,8 @@ void make_test_problem(int fresult) {
 	exit(EXIT_FAILURE);
 }
 
-void make_log_file_if_all_ok(char *, char *, int, int, char *);
-
-int test_user_problem(char *user_program, char *way_to_test, int test_count, int check_style) {
-	int status, success_tests = 0;
-	char *result_array = malloc((test_count + 1) * sizeof(char));
-	int fresult = open("var/result.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+void compiler_user_program(char *user_program, int fresult) {
+	int status;
 	if (fork() > 0) {
 		wait(&status);
 		if (WEXITSTATUS(status)) {
@@ -122,6 +119,11 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count, int
 			exit(EXIT_FAILURE);
 		}
 	}
+
+}
+
+void compiler_checker(int check_style, int fresult) {
+	int status;
 	if (fork() > 0) {
 		wait(&status);
 		if (WEXITSTATUS(status)) {
@@ -136,149 +138,135 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count, int
 			}
 		}
 		else {
-				if (execlp("gcc", "gcc", "checkers/checker_int.c", "-o", "var/checker_int", NULL) < 0) {
-					_exit(EXIT_FAILURE);
-				}
-		}
-	}
-	char *path = malloc((strlen(way_to_test) + 10) * sizeof(char));
-	if (path == NULL) {
-		make_test_problem(fresult);
-	}
-	for (int i = 1; i <= test_count; i++) {
-		int fd_1[2], fd_2[2], flag = 1;
-		pipe(fd_1);
-		if (fork() > 0) {
-			pipe(fd_2);
-			wait(&status);
-			if (WEXITSTATUS(status)) {
-				write(fd_2[1], "x", 1);
-				close(fd_1[0]), close(fd_1[1]);
-				flag = 0;
-			}
-		}
-		else {
-			sprintf(path, "%s/%02d.dat\0", way_to_test, i);
-			int read_file = open(path, O_RDONLY, S_IRUSR | S_IWUSR);
-			if (read_file < 0) {
-				_exit(EXIT_FAILURE);
-			}
-			dup2(read_file, 0);
-			dup2(fd_1[1], 1);
-			close(fd_1[0]), close(fd_1[1]);
-			if (execlp("./var/prog", "./var/prog", NULL) < 0) {
+			if (execlp("gcc", "gcc", "checkers/checker_int.c", "-o", "var/checker_int", NULL) < 0) {
 				_exit(EXIT_FAILURE);
 			}
 		}
-		if (flag)
-		if (fork() > 0) {
+	}
+}
+
+int do_user_prog(int fd_1[], int fd_2[], char *path, char *way_to_test, int i) {
+	int status;
+	if (fork() > 0) {
+		pipe(fd_2);
+		wait(&status);
+		if (WEXITSTATUS(status)) {
+			write(fd_2[1], "x", 1);
 			close(fd_1[0]), close(fd_1[1]);
-			wait(&status);
-			close(fd_2[1]);
-			if (WEXITSTATUS(status)) {
-				make_test_problem(fresult);
+			return 0;
+		}
+	}
+	else {
+		sprintf(path, "%s/%02d.dat", way_to_test, i);
+		int read_file = open(path, O_RDONLY, S_IRUSR | S_IWUSR);
+		if (read_file < 0) {
+			_exit(EXIT_FAILURE);
+		}
+		dup2(read_file, 0);
+		dup2(fd_1[1], 1);
+		close(fd_1[0]), close(fd_1[1]);
+		if (execlp("./var/prog", "./var/prog", NULL) < 0) {
+			_exit(EXIT_FAILURE);
+		}
+	}
+	return 1;
+}
+
+void do_check_ans(int fd_1[], int fd_2[], int fresult, char *path, char *way_to_test, int check_style, int i) {
+	int status;
+	if (fork() > 0) {
+		close(fd_1[0]), close(fd_1[1]);
+		wait(&status);
+		close(fd_2[1]);
+		if (WEXITSTATUS(status)) {
+			make_test_problem(fresult);
+		}
+	}
+	else {
+		dup2(fd_1[0], 0);
+		dup2(fd_2[1], 1);
+		close(fd_1[0]), close(fd_1[1]), close(fd_2[0]), close(fd_2[1]);
+		sprintf(path, "%s/%02d.ans", way_to_test, i);
+		if (check_style == 0) {
+			if (execlp("./var/checker_byte", "./var/checker_byte", path, NULL) < 0){
+				_exit(EXIT_FAILURE);
 			}
 		}
 		else {
-			dup2(fd_1[0], 0);
-			dup2(fd_2[1], 1);
-			close(fd_1[0]), close(fd_1[1]), close(fd_2[0]), close(fd_2[1]);
-			sprintf(path, "%s/%02d.ans\0", way_to_test, i);
-			if (check_style == 0) {
-				if (execlp("./var/checker_byte", "./var/checker_byte", path, NULL) < 0){
-					_exit(EXIT_FAILURE);
-				}
-			}
-			else {
-				if (execlp("./var/checker_int", "./var/checker_int", path, NULL) < 0){
-					_exit(EXIT_FAILURE);
-				}
+			if (execlp("./var/checker_int", "./var/checker_int", path, NULL) < 0){
+				_exit(EXIT_FAILURE);
 			}
 		}
-		char tmp;
-		if (read(fd_2[0], &tmp, 1) > 0) {
-			if (tmp == '+') {
-				result_array[i - 1] = 'O';
-			}
-			if (tmp == '-') {
-				result_array[i - 1] = 'N';
-			}
-			if (tmp == 'x') {
-				result_array[i - 1] = 'X';
-			}
-			if (tmp != 'x') {
-				success_tests++;
-			}
-			putchar(tmp);
-			write(fresult, &tmp, 1);
-		}
-		close(fd_2[0]);
-	}
-	make_log_file_if_all_ok(user_program, way_to_test, test_count, success_tests, result_array);
-	free(result_array);
-	free(path);
-	close(fresult);
-	return 0;
-}
-
-void create_number(char array[], int n) {
-	int i = 0;
-	if (n == 0) {
-		array[2] = '0';
-	}
-	while (n) {
-		array[i++] = (n % 10) + '0';
-		n /= 10;
 	}
 }
 
-void make_log_file_if_all_ok(char *user_program, char *way_to_test, int test_count, int success_tests, char *result_array) {
+void make_ans(int fd_2[], char result_array[], int i, int *success_tests, int fresult) {
+	char tmp;
+	if (read(fd_2[0], &tmp, 1) > 0) {
+		if (tmp == '+') {
+			result_array[i - 1] = 'O';
+		}
+		if (tmp == '-') {
+			result_array[i - 1] = 'N';
+		}
+		if (tmp == 'x') {
+			result_array[i - 1] = 'X';
+		}
+		if (tmp != 'x') {
+			(*success_tests)++;
+		}
+		putchar(tmp);
+		write(fresult, &tmp, 1);
+	}
+}
+
+char *get_user_name(char *user_program) {
 	char *user = malloc(strlen(user_program) * sizeof(char));
 	int i = 0, j = 0;
-	while (user_program[i] && user_program[i] != '/') i++;
-	i++;
-	while (user_program[i] && user_program[i] != '/') i++;
-	i++;
-	while (user_program[i] && user_program[i] != '/') {
+	while (user_program[i++] != '/');
+	while (user_program[i++] != '/');
+	while (user_program[i] != '/') {
 		user[j] = user_program[i];
 		j++, i++;
 	}
-	user[j] = '\0';
-	
+	user[j] = '\0';	
+	return user;
+}
+
+char *get_user_problem(char *way_to_test) {
 	char *problem = malloc(strlen(way_to_test) * sizeof(char));
-	i = 0, j = 0;
-	while (way_to_test[i] && way_to_test[i] != '/') i++;
-	i++;
-	while (way_to_test[i] && way_to_test[i] != '/') i++;
-	i++;
-	while (way_to_test[i] && way_to_test[i] != '/') {
+	int i = 0, j = 0;
+	while (way_to_test[i++] != '/');
+	while (way_to_test[i++] != '/');
+	while (way_to_test[i] != '/') {
 		problem[j] = way_to_test[i];
 		j++, i++;
 	}
 	problem[j] = '\0';
-	
+	return problem;
+}
 
+void create_number(char array[], int n) {
+	int i = 2;
+	while (n) {
+		array[i--] = (n % 10) + '0';
+		n /= 10;
+	}
+}
+
+void make_log_file(char *user_program, char *way_to_test, int test_count, int success_tests, char *result_array) {
+	char *user = get_user_name(user_program);
+	char *problem = get_user_problem(way_to_test);
 	char *path = malloc((strlen(user) + strlen(problem) + 11) * sizeof(char));
+	char number_1[4] = {'0', '0', '0', 0}, number_2[4] = {'0', '0', '0', 0};
+
+	create_number(number_1, test_count);
+	create_number(number_2, test_count - success_tests);
 	sprintf(path, "logs/%s-%s.log", user, problem);
 	int flog = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-	write(flog, "start test\n", 11);
-	write(flog, " user: ", 7);
-	write(flog, user, strlen(user));
-	write(flog, "\n", 1);
-	write(flog, " problem: ", 10);
-	write(flog, problem, strlen(problem));
-	write(flog, "\n", 1);
-	write(flog, " tested: ", 9);
-	int tests = test_count, fail_tests = test_count - success_tests;
-	char number[3] = {0, 0, 0};
-	create_number(number, test_count);
-	write(flog, number, 3);
-	write(flog, "\n", 1);
-	write(flog, " failed: ", 9);
-	number[0] = number[1] = number[2] = 0;
-	create_number(number, test_count - success_tests);
-	write(flog, number, 3);
-	write(flog, "\n", 1);
+	char *string = malloc((strlen(user) + strlen(number_1) + strlen(number_2) + 70) * sizeof(char));
+	sprintf(string, "start test\n user: %s\n tested: %s\n failed: %s\n", user, number_1, number_2);
+	write(flog, string, strlen(string));
 	char *test_info = malloc(32 * sizeof(char));
 	for (int i = 1; i <= test_count; i++) {
 		int len;
@@ -287,23 +275,49 @@ void make_log_file_if_all_ok(char *user_program, char *way_to_test, int test_cou
 			len = 15;
 		}
 		if (result_array[i - 1] == 'N') {
-			sprintf(test_info, "  Test %03d: Wrong answer\n\0", i);
+			sprintf(test_info, "  Test %03d: Wrong answer\n", i);
 			len = 25;
 		}
 		if (result_array[i - 1] == 'X') {
-			sprintf(test_info, "  Test %03d: Execution error\n\0", i);
+			sprintf(test_info, "  Test %03d: Execution error\n", i);
 			len = 28;
 		}
 		write(flog, test_info, len);
 	}
 	write(flog, "stop test", 10);
 	close(flog);
-	free(path), free(problem), free(user);
+	free(path), free(problem), free(user), free(string), free(test_info);
+}
+
+int test_user_problem(char *user_program, char *way_to_test, int test_count, int check_style) {
+	int success_tests = 0;
+	int fresult = open("var/result.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	char *path = malloc((strlen(way_to_test) + 10) * sizeof(char));
+	char *result_array = malloc((test_count + 1) * sizeof(char));
+	
+	if (path == NULL || result_array == NULL) {
+		make_test_problem(fresult);
+	}
+	compiler_user_program(user_program, fresult);
+	compiler_checker(check_style, fresult);
+	for (int i = 1; i <= test_count; i++) {
+		int fd_1[2], fd_2[2];
+		pipe(fd_1);
+		if (do_user_prog(fd_1, fd_2, path, way_to_test, i)) {
+			do_check_ans(fd_1, fd_2, fresult, path, way_to_test, check_style, i);
+		}
+		make_ans(fd_2, result_array, i, &success_tests, fresult);
+		close(fd_2[0]);
+	}
+	make_log_file(user_program, way_to_test, test_count, success_tests, result_array);
+	free(result_array), free(path);
+	close(fresult);
+	return 0;
 }
 
 int main(int argc, char **argv) {
 	if (argc != 3) {
-		perror("Not a 3 ");
+		perror("Need 3 arguments");
 		return 1;
 	}
 	int test_count = 3, check_style = 0;

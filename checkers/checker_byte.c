@@ -2,11 +2,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <sys/wait.h>
-#include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
-#include <signal.h>
 
 int main(int argc, char **argv) {
 	char *path = argv[1], tmp1 = 0, tmp2 = 0;
