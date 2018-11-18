@@ -17,16 +17,16 @@ int main(int argc, char **argv) {
 		}
 		if (read(0, &tmp2, 1) <= 0) {
 			write(1, "-", 1);
-			return 1;
+			return 0;
 		}
 		if (tmp1 != tmp2) {
 			write(1, "-", 1);
-			return 2;
+			return 0;
 		}
 	}
 	if (read(0, &tmp2, 1) > 0) {
 		write(1, "-", 1);
-		return 3;
+		return 0;
 	}
 	write(1, "+", 1);
 	return 0;

@@ -43,7 +43,7 @@ int set_checker(int fconfig) {
 			make_config_problem("L");
 		}
 		if (read(fconfig, &tmp, 1) < 0) {
-			make_config_problem("X");
+			make_config_problem("A");
 		}
 		if (tmp != 10 && tmp != '\n') {
 			make_config_problem("Y");
@@ -94,41 +94,76 @@ int set_config(char *way_to_test, int *test_count, int *check_style) {
 	return 0;
 }
 
+void make_test_problem(char *str) {
+	//int file = open("file.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	//dup2(file, 1);
+	write(1, str, 1);
+	exit(EXIT_FAILURE);
+}
+
 int test_user_problem(char *user_program, char *way_to_test, int test_count) {
+	int status;
 	if (fork() > 0) {
-		wait(NULL);
+		wait(&status);
+		if (WEXITSTATUS(status)) {
+			make_test_problem("Q");
+		}
 	}
 	else {
-		execlp("gcc", "gcc", user_program, "-o", "var/prog", NULL);
-		exit(0);
+		close(2);
+		if (execlp("gcc", "gcc", user_program, "-o", "var/prog", NULL) < 0) {
+			exit(EXIT_FAILURE);
+		}
 	}
 	if (fork() > 0) {
-		wait(NULL);
+		wait(&status);
+		if (WEXITSTATUS(status)) {
+			make_test_problem("Y");
+		}
 	}
 	else {
-		execlp("gcc", "gcc", "checkers/checker_byte.c", "-o", "var/checker_byte", NULL);
-		exit(0);
+		close(2);
+		if (execlp("gcc", "gcc", "checkers/checker_byte.c", "-o", "var/checker_byte", NULL) < 0) {
+			_exit(EXIT_FAILURE);
+		}
 	}
 	char *path = malloc((strlen(way_to_test) + 10) * sizeof(char));
+	if (path == NULL) {
+		make_test_problem("O");
+	}
 	for (int i = 1; i <= test_count; i++) {
-		int fd_1[2], fd_2[2];
+		int fd_1[2], fd_2[2], flag = 1;
 		pipe(fd_1);
 		if (fork() > 0) {
-			wait(NULL);
+			pipe(fd_2);
+			wait(&status);
+			if (WEXITSTATUS(status)) {
+				write(fd_2[1], "x", 1);
+				close(fd_1[0]), close(fd_1[1]);
+				flag = 0;
+			}
 		}
 		else {
 			sprintf(path, "%s/%02d.dat\0", way_to_test, i);
 			int read_file = open(path, O_RDONLY, S_IRUSR | S_IWUSR);
+			if (read_file < 0) {
+				make_test_problem("B");
+			}
 			dup2(read_file, 0);
 			dup2(fd_1[1], 1);
 			close(fd_1[0]), close(fd_1[1]);
-			execlp("./var/prog", "./var/prog", NULL);
+			if (execlp("./var/prog", "./var/prog", NULL) < 0) {
+				_exit(EXIT_FAILURE);
+			}
 		}
-		pipe(fd_2);
+		if (flag)
 		if (fork() > 0) {
 			close(fd_1[0]), close(fd_1[1]);
-			wait(NULL);
+			wait(&status);
 			close(fd_2[1]);
+			if (WEXITSTATUS(status)) {
+				make_test_problem("Q");
+			}
 		}
 		else {
 			dup2(fd_1[0], 0);
@@ -136,11 +171,11 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count) {
 			close(fd_1[0]), close(fd_1[1]), close(fd_2[0]), close(fd_2[1]);
 			sprintf(path, "%s/%02d.ans\0", way_to_test, i);
 			if (execlp("./var/checker_byte", "./var/checker_byte", path, NULL) < 0){
-				exit(EXIT_FAILURE);
+				_exit(EXIT_FAILURE);
 			}
 		}
 		char tmp;
-		while (read(fd_2[0], &tmp, 1) > 0) {
+		if (read(fd_2[0], &tmp, 1) > 0) {
 			putchar(tmp);
 		}
 		close(fd_2[0]);
