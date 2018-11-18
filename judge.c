@@ -68,17 +68,21 @@ int task_set (int cfg) {
     return tasks;
 }
 
-void configuration (int *users, int *tasks) {
+void configuration (int *users, int *tasks, char *contest) {
     int cfg;
-    cfg = open("contest/global.cfg", O_RDONLY, S_IRUSR | S_IWUSR);
+    char *path = malloc(strlen(contest) + 12);
+    sprintf(path, "%s/global.cfg", contest);
+    cfg = open(path, O_RDONLY, S_IRUSR | S_IWUSR);
     if (cfg < 0) {
         puts("No configuration file found.");
+        free(path);
         exit(0);
     }
     int buf[10];
     *users = user_set(cfg);
     *tasks = task_set(cfg);
     close(cfg);
+    free(path);
     return ;
 }
 
@@ -95,7 +99,11 @@ void testing (int users, int tasks, char *contest) {
             if (fork() == 0) {
                 execlp("./test", "./test", code_dir, test_dir, NULL);
             }
-            wait(NULL);
+            int wstatus;
+            wait(&wstatus);
+            if (WEXITSTATUS(wstatus) != 0){
+                printf("user = %d, task = %d failed\n", u, cur_task);
+            }
             free(test_dir);
             free(code_dir);
         }
@@ -109,7 +117,7 @@ int main (int argc, char **argv) {
         return 1;
     }
     int users, tasks;
-    configuration(&users, &tasks);
+    configuration(&users, &tasks, argv[1]);
     testing(users, tasks, argv[1]);
     return 0;
 }
