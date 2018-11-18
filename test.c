@@ -9,7 +9,10 @@
 #include <signal.h>
 
 void make_config_problem() {
-	write(1, "Config error", 12);
+	int fresult = open("var/result.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IWUSR | S_IRUSR);
+	write(1, "Config error", 12);	
+	write(fresult, "Config error", 12);
+	close(fresult);
 	exit(EXIT_FAILURE);
 }
 
@@ -94,8 +97,10 @@ int set_config(char *way_to_test, int *test_count, int *check_style) {
 	return 0;
 }
 
-void make_test_problem() {
+void make_test_problem(int fresult) {
 	write(1, "Compilation error", 17);
+	write(fresult, "Compilation error", 17);
+	close(fresult);
 	exit(EXIT_FAILURE);
 }
 
@@ -104,10 +109,11 @@ void make_log_file_if_all_ok(char *, char *, int, int, char *);
 int test_user_problem(char *user_program, char *way_to_test, int test_count, int check_style) {
 	int status, success_tests = 0;
 	char *result_array = malloc((test_count + 1) * sizeof(char));
+	int fresult = open("var/result.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 	if (fork() > 0) {
 		wait(&status);
 		if (WEXITSTATUS(status)) {
-			make_test_problem();
+			make_test_problem(fresult);
 		}
 	}
 	else {
@@ -119,7 +125,7 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count, int
 	if (fork() > 0) {
 		wait(&status);
 		if (WEXITSTATUS(status)) {
-			make_test_problem();
+			make_test_problem(fresult);
 		}
 	}
 	else {
@@ -137,7 +143,7 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count, int
 	}
 	char *path = malloc((strlen(way_to_test) + 10) * sizeof(char));
 	if (path == NULL) {
-		make_test_problem();
+		make_test_problem(fresult);
 	}
 	for (int i = 1; i <= test_count; i++) {
 		int fd_1[2], fd_2[2], flag = 1;
@@ -170,7 +176,7 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count, int
 			wait(&status);
 			close(fd_2[1]);
 			if (WEXITSTATUS(status)) {
-				make_test_problem();
+				make_test_problem(fresult);
 			}
 		}
 		else {
@@ -204,12 +210,14 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count, int
 				success_tests++;
 			}
 			putchar(tmp);
+			write(fresult, &tmp, 1);
 		}
 		close(fd_2[0]);
 	}
 	make_log_file_if_all_ok(user_program, way_to_test, test_count, success_tests, result_array);
 	free(result_array);
 	free(path);
+	close(fresult);
 	return 0;
 }
 
