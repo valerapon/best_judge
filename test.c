@@ -8,45 +8,45 @@
 #include <stdio.h>
 #include <signal.h>
 
-void make_config_problem(char *str) {
-	write(1, str, 1);
+void make_config_problem() {
+	write(1, "Config error", 12);
 	exit(EXIT_FAILURE);
 }
 
 int set_checker(int fconfig) {
 	char array[15], tmp;
 	if (read(fconfig, array, 8) < 0) {
-			make_config_problem("G");
+			make_config_problem();
 	}
 	array[8] = '\0';
 	if (strcmp(array, "checker=")) {
-		make_config_problem("T");
+		make_config_problem();
 	}
 	if (read(fconfig, array, 11) < 0) {
-		make_config_problem("R");
+		make_config_problem();
 	}
 	array[11] = '\0';
 	if (!strcmp(array, "checker_int")) {
 		if (read(fconfig, &tmp, 1) < 0) {
-			make_config_problem("M");
+			make_config_problem();
 		}
 		if (tmp != 10 && tmp != '\n') {
-			make_config_problem("Y");
+			make_config_problem();
 		}
 		return 1;
 	}
 	if (!strcmp(array, "checker_byt")) {
 		if (read(fconfig, &tmp, 1) < 0) {
-			make_config_problem("N");
+			make_config_problem();
 		}
 		if (tmp != 'e') {
-			make_config_problem("L");
+			make_config_problem();
 		}
 		if (read(fconfig, &tmp, 1) < 0) {
-			make_config_problem("A");
+			make_config_problem();
 		}
 		if (tmp != 10 && tmp != '\n') {
-			make_config_problem("Y");
+			make_config_problem();
 		}
 		return 0;
 	}
@@ -56,22 +56,22 @@ int set_tests(int fconfig) {
 	char array[15], tmp;
 	int count = 0;
 	if (read(fconfig, array, 6) < 0) {
-		make_config_problem("C");
+		make_config_problem();
 	}
 	array[6] = '\0';
 	if (strcmp(array, "tests=")) {
-		make_config_problem("D");
+		make_config_problem();
 	}
 	while (1) {
 		if (read(fconfig, &tmp, 1) < 0) {
-			make_config_problem("D");
+			make_config_problem();
 		}
 		if (tmp > '9' || tmp < '0') {
 			break;
 		}
 		count = 10 * count + (tmp - '0');
 		if (count > 999) {
-			make_config_problem("F");
+			make_config_problem();
 		}
 	}
 	return count;
@@ -80,12 +80,12 @@ int set_tests(int fconfig) {
 int set_config(char *way_to_test, int *test_count, int *check_style) {
 	char *path = malloc((strlen(way_to_test) + 20) * sizeof(char)), array[14], tmp;
 	if (path == NULL) {
-		make_config_problem("A");
+		make_config_problem();
 	}
 	sprintf(path, "%s/problem.cfg\0", way_to_test);
 	int fconfig = open(path, O_RDONLY, S_IRUSR | S_IWUSR), count = 0;
 	if (fconfig < 0) {
-		make_config_problem("B");
+		make_config_problem();
 	}
 	*check_style = set_checker(fconfig);
 	*test_count = set_tests(fconfig);
@@ -94,10 +94,10 @@ int set_config(char *way_to_test, int *test_count, int *check_style) {
 	return 0;
 }
 
-void make_test_problem(char *str) {
+void make_test_problem() {
 	//int file = open("file.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 	//dup2(file, 1);
-	write(1, str, 1);
+	write(1, "Compilation error", 17);
 	exit(EXIT_FAILURE);
 }
 
@@ -106,7 +106,7 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count) {
 	if (fork() > 0) {
 		wait(&status);
 		if (WEXITSTATUS(status)) {
-			make_test_problem("Q");
+			make_test_problem();
 		}
 	}
 	else {
@@ -118,7 +118,7 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count) {
 	if (fork() > 0) {
 		wait(&status);
 		if (WEXITSTATUS(status)) {
-			make_test_problem("Y");
+			make_test_problem();
 		}
 	}
 	else {
@@ -129,7 +129,7 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count) {
 	}
 	char *path = malloc((strlen(way_to_test) + 10) * sizeof(char));
 	if (path == NULL) {
-		make_test_problem("O");
+		make_test_problem();
 	}
 	for (int i = 1; i <= test_count; i++) {
 		int fd_1[2], fd_2[2], flag = 1;
@@ -147,7 +147,7 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count) {
 			sprintf(path, "%s/%02d.dat\0", way_to_test, i);
 			int read_file = open(path, O_RDONLY, S_IRUSR | S_IWUSR);
 			if (read_file < 0) {
-				make_test_problem("B");
+				make_test_problem();
 			}
 			dup2(read_file, 0);
 			dup2(fd_1[1], 1);
@@ -162,7 +162,7 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count) {
 			wait(&status);
 			close(fd_2[1]);
 			if (WEXITSTATUS(status)) {
-				make_test_problem("Q");
+				make_test_problem();
 			}
 		}
 		else {
