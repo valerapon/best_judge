@@ -95,14 +95,15 @@ int set_config(char *way_to_test, int *test_count, int *check_style) {
 }
 
 void make_test_problem() {
-	//int file = open("file.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-	//dup2(file, 1);
 	write(1, "Compilation error", 17);
 	exit(EXIT_FAILURE);
 }
 
+void make_log_file_if_all_ok(char *, char *, int, int, char *);
+
 int test_user_problem(char *user_program, char *way_to_test, int test_count) {
-	int status;
+	int status, success_tests = 0;
+	char *result_array = malloc((test_count + 1) * sizeof(char));
 	if (fork() > 0) {
 		wait(&status);
 		if (WEXITSTATUS(status)) {
@@ -147,7 +148,7 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count) {
 			sprintf(path, "%s/%02d.dat\0", way_to_test, i);
 			int read_file = open(path, O_RDONLY, S_IRUSR | S_IWUSR);
 			if (read_file < 0) {
-				make_test_problem();
+				_exit(EXIT_FAILURE);
 			}
 			dup2(read_file, 0);
 			dup2(fd_1[1], 1);
@@ -176,12 +177,106 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count) {
 		}
 		char tmp;
 		if (read(fd_2[0], &tmp, 1) > 0) {
+			if (tmp == '+') {
+				result_array[i - 1] = 'O';
+			}
+			if (tmp == '-') {
+				result_array[i - 1] = 'N';
+			}
+			if (tmp == 'x') {
+				result_array[i - 1] = 'X';
+			}
+			if (tmp != 'x') {
+				success_tests++;
+			}
 			putchar(tmp);
 		}
 		close(fd_2[0]);
 	}
+	make_log_file_if_all_ok(user_program, way_to_test, test_count, success_tests, result_array);
+	free(result_array);
 	free(path);
 	return 0;
+}
+
+void create_number(char array[], int n) {
+	int i = 0;
+	if (n == 0) {
+		array[2] = '0';
+	}
+	while (n) {
+		array[i++] = (n % 10) + '0';
+		n /= 10;
+	}
+}
+
+void make_log_file_if_all_ok(char *user_program, char *way_to_test, int test_count, int success_tests, char *result_array) {
+	char *user = malloc(strlen(user_program) * sizeof(char));
+	int i = 0, j = 0;
+	while (user_program[i] && user_program[i] != '/') i++;
+	i++;
+	while (user_program[i] && user_program[i] != '/') i++;
+	i++;
+	while (user_program[i] && user_program[i] != '/') {
+		user[j] = user_program[i];
+		j++, i++;
+	}
+	user[j] = '\0';
+	
+	char *problem = malloc(strlen(way_to_test) * sizeof(char));
+	i = 0, j = 0;
+	while (way_to_test[i] && way_to_test[i] != '/') i++;
+	i++;
+	while (way_to_test[i] && way_to_test[i] != '/') i++;
+	i++;
+	while (way_to_test[i] && way_to_test[i] != '/') {
+		problem[j] = way_to_test[i];
+		j++, i++;
+	}
+	problem[j] = '\0';
+	
+
+	char *path = malloc((strlen(user) + strlen(problem) + 11) * sizeof(char));
+	sprintf(path, "logs/%s-%s.log", user, problem);
+	int flog = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	write(flog, "start test\n", 11);
+	write(flog, " user: ", 7);
+	write(flog, user, strlen(user));
+	write(flog, "\n", 1);
+	write(flog, " problem: ", 10);
+	write(flog, problem, strlen(problem));
+	write(flog, "\n", 1);
+	write(flog, " tested: ", 9);
+	int tests = test_count, fail_tests = test_count - success_tests;
+	char number[3] = {0, 0, 0};
+	create_number(number, test_count);
+	write(flog, number, 3);
+	write(flog, "\n", 1);
+	write(flog, " failed: ", 9);
+	number[0] = number[1] = number[2] = 0;
+	create_number(number, test_count - success_tests);
+	write(flog, number, 3);
+	write(flog, "\n", 1);
+	char *test_info = malloc(32 * sizeof(char));
+	for (int i = 1; i <= test_count; i++) {
+		int len;
+		if (result_array[i - 1] == 'O') {
+			sprintf(test_info, "  Test %03d: OK\n", i);
+			len = 15;
+		}
+		if (result_array[i - 1] == 'N') {
+			sprintf(test_info, "  Test %03d: Wrong answer\n\0", i);
+			len = 25;
+		}
+		if (result_array[i - 1] == 'X') {
+			sprintf(test_info, "  Test %03d: Execution error\n\0", i);
+			len = 28;
+		}
+		write(flog, test_info, len);
+	}
+	write(flog, "stop test", 10);
+	close(flog);
+	free(path), free(problem), free(user);
 }
 
 int main(int argc, char **argv) {
