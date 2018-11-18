@@ -8,3 +8,4 @@ test:
 
 checkers:
 	gcc checkers/checker_byte.c -o var/checker_byte
+	gcc checkers/checker_int.c -o var/checker_int

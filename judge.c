@@ -197,6 +197,13 @@ void testing (int users, int tasks, int score_type, char *contest) {
         free(user_dir);
     }
     close(res);
+    res = open("var/results.csv", O_RDONLY, S_IRUSR | S_IWUSR);
+    char buf[10];
+    int len;
+    while((len = read(res, buf, 10)) != 0) {
+        write(1, buf, len);
+    }
+    close(res);
 }
 
 int main (int argc, char **argv) {
