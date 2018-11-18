@@ -68,7 +68,30 @@ int task_set (int cfg) {
     return tasks;
 }
 
-void configuration (int *users, int *tasks, char *contest) {
+int score_set (int cfg) {   // 0 = sum, 1 = all
+    char tmparr[7], type[4];
+    int score;
+    if (read(cfg, tmparr, 6) < 0) {
+        cfg_error();
+    }
+    tmparr[6] = '\0';
+    if (strcmp(tmparr, "score=") != 0) {
+        cfg_error();
+    }
+    if (read(cfg, type, 3) < 0) {
+        cfg_error();
+    }
+    type[3] = '\0';
+    if (strcmp(type, "sum") == 0) {
+        score = 0;
+    } else if (strcmp(type, "all") == 0) {
+        score = 1;
+    } else {
+        cfg_error();
+    }
+    return score;
+}
+void configuration (int *users, int *tasks, int *score_type, char *contest) {
     int cfg;
     char *path = malloc(strlen(contest) + 12);
     sprintf(path, "%s/global.cfg", contest);
@@ -81,6 +104,7 @@ void configuration (int *users, int *tasks, char *contest) {
     int buf[10];
     *users = user_set(cfg);
     *tasks = task_set(cfg);
+    *score_type = score_set(cfg);
     close(cfg);
     free(path);
     return ;
@@ -102,7 +126,7 @@ void testing (int users, int tasks, char *contest) {
             int wstatus;
             wait(&wstatus);
             if (WEXITSTATUS(wstatus) != 0){
-                printf("user = %d, task = %d failed\n", u, cur_task);
+                printf("user = %d, task = %c failed\n", u, cur_task);
             }
             free(test_dir);
             free(code_dir);
@@ -116,8 +140,8 @@ int main (int argc, char **argv) {
         puts("No contest folder specified");
         return 1;
     }
-    int users, tasks;
-    configuration(&users, &tasks, argv[1]);
+    int users, tasks, score_type;
+    configuration(&users, &tasks, &score_type, argv[1]);
     testing(users, tasks, argv[1]);
     return 0;
 }
