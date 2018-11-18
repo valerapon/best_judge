@@ -101,7 +101,7 @@ void make_test_problem() {
 
 void make_log_file_if_all_ok(char *, char *, int, int, char *);
 
-int test_user_problem(char *user_program, char *way_to_test, int test_count) {
+int test_user_problem(char *user_program, char *way_to_test, int test_count, int check_style) {
 	int status, success_tests = 0;
 	char *result_array = malloc((test_count + 1) * sizeof(char));
 	if (fork() > 0) {
@@ -124,8 +124,15 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count) {
 	}
 	else {
 		close(2);
-		if (execlp("gcc", "gcc", "checkers/checker_byte.c", "-o", "var/checker_byte", NULL) < 0) {
-			_exit(EXIT_FAILURE);
+		if (check_style == 0){
+			if (execlp("gcc", "gcc", "checkers/checker_byte.c", "-o", "var/checker_byte", NULL) < 0) {
+				_exit(EXIT_FAILURE);
+			}
+		}
+		else {
+				if (execlp("gcc", "gcc", "checkers/checker_int.c", "-o", "var/checker_int", NULL) < 0) {
+					_exit(EXIT_FAILURE);
+				}
 		}
 	}
 	char *path = malloc((strlen(way_to_test) + 10) * sizeof(char));
@@ -171,8 +178,15 @@ int test_user_problem(char *user_program, char *way_to_test, int test_count) {
 			dup2(fd_2[1], 1);
 			close(fd_1[0]), close(fd_1[1]), close(fd_2[0]), close(fd_2[1]);
 			sprintf(path, "%s/%02d.ans\0", way_to_test, i);
-			if (execlp("./var/checker_byte", "./var/checker_byte", path, NULL) < 0){
-				_exit(EXIT_FAILURE);
+			if (check_style == 0) {
+				if (execlp("./var/checker_byte", "./var/checker_byte", path, NULL) < 0){
+					_exit(EXIT_FAILURE);
+				}
+			}
+			else {
+				if (execlp("./var/checker_int", "./var/checker_int", path, NULL) < 0){
+					_exit(EXIT_FAILURE);
+				}
 			}
 		}
 		char tmp;
@@ -286,7 +300,7 @@ int main(int argc, char **argv) {
 	}
 	int test_count = 3, check_style = 0;
 	set_config(argv[2], &test_count, &check_style);
-	test_user_problem(argv[1], argv[2], test_count);
+	test_user_problem(argv[1], argv[2], test_count, check_style);
 		
 	return 0;
 }
