@@ -8,19 +8,87 @@
 #include <stdio.h>
 #include <signal.h>
 
+void make_config_problem(char *str) {
+	write(1, str, 1);
+	exit(EXIT_FAILURE);
+}
+
+int set_checker(int fconfig) {
+	char array[15], tmp;
+	if (read(fconfig, array, 8) < 0) {
+			make_config_problem("G");
+	}
+	array[8] = '\0';
+	if (strcmp(array, "checker=")) {
+		make_config_problem("T");
+	}
+	if (read(fconfig, array, 11) < 0) {
+		make_config_problem("R");
+	}
+	array[11] = '\0';
+	if (!strcmp(array, "checker_int")) {
+		if (read(fconfig, &tmp, 1) < 0) {
+			make_config_problem("M");
+		}
+		if (tmp != 10 && tmp != '\n') {
+			make_config_problem("Y");
+		}
+		return 1;
+	}
+	if (!strcmp(array, "checker_byt")) {
+		if (read(fconfig, &tmp, 1) < 0) {
+			make_config_problem("N");
+		}
+		if (tmp != 'e') {
+			make_config_problem("L");
+		}
+		if (read(fconfig, &tmp, 1) < 0) {
+			make_config_problem("X");
+		}
+		if (tmp != 10 && tmp != '\n') {
+			make_config_problem("Y");
+		}
+		return 0;
+	}
+}
+
+int set_tests(int fconfig) {
+	char array[15], tmp;
+	int count = 0;
+	if (read(fconfig, array, 6) < 0) {
+		make_config_problem("C");
+	}
+	array[6] = '\0';
+	if (strcmp(array, "tests=")) {
+		make_config_problem("D");
+	}
+	while (1) {
+		if (read(fconfig, &tmp, 1) < 0) {
+			make_config_problem("D");
+		}
+		if (tmp > '9' || tmp < '0') {
+			break;
+		}
+		count = 10 * count + (tmp - '0');
+		if (count > 999) {
+			make_config_problem("F");
+		}
+	}
+	return count;
+}
+
 int set_config(char *way_to_test, int *test_count, int *check_style) {
-	char *path = malloc((strlen(way_to_test) + 20) * sizeof(char));
+	char *path = malloc((strlen(way_to_test) + 20) * sizeof(char)), array[14], tmp;
+	if (path == NULL) {
+		make_config_problem("A");
+	}
 	sprintf(path, "%s/problem.cfg\0", way_to_test);
-	int fconfig = open(path, O_RDONLY, S_IRUSR | S_IWUSR);
-	char number[4], tmp;
-	for (int i = 0; i < 6; i++) {
-		read(fconfig, &tmp, 1);
+	int fconfig = open(path, O_RDONLY, S_IRUSR | S_IWUSR), count = 0;
+	if (fconfig < 0) {
+		make_config_problem("B");
 	}
-	for (int i = 0; i < 4; i++) {
-		read(fconfig, number + i, 1);
-	}
-	*test_count = atoi(number);
-	*check_style = 0;
+	*check_style = set_checker(fconfig);
+	*test_count = set_tests(fconfig);
 	free(path);
 	close(fconfig);
 	return 0;
