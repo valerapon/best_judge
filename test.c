@@ -286,7 +286,7 @@ void make_log_file(char *user_program, char *way_to_test, int test_count, int su
 	}
 	write(flog, "stop test", 10);
 	close(flog);
-	free(path), free(problem), free(user), free(string), free(test_info);
+	free(path), free(problem), free(user), free(string)/*, free(test_info)*/;
 }
 
 int test_user_problem(char *user_program, char *way_to_test, int test_count, int check_style) {

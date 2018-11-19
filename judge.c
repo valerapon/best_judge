@@ -126,8 +126,12 @@ int res_file_create (int tasks) {
     return res;
 }
 
-void write_to_res (int res, int user, int score, int *sum) {
+void write_to_res_0 (int res, int user, int *sum) {
     int tmp_res = open("var/result.txt", O_RDONLY, S_IRUSR | S_IWUSR);
+    if (tmp_res < 0) {
+        puts("I don't know how to get this error");
+        return;
+    }
     char c;
     read(tmp_res, &c, 1);
     while (1) {
@@ -144,6 +148,65 @@ void write_to_res (int res, int user, int score, int *sum) {
     *sum += 1;
     close(tmp_res);
     return;
+}
+
+void write_to_res_1 (int res, int user, int *sum) {
+    int tmp_res = open("var/result.txt", O_RDONLY, S_IRUSR | S_IWUSR);
+    if (tmp_res < 0) {
+        puts("No result.txt somehow");
+        return;
+    }
+    char c;
+    int tmp_sum = 0;
+    read (tmp_res, &c, 1);
+    while (1) {
+        if (c == '+') {
+            tmp_sum += 1;
+            *sum += 1;
+        }
+        if (read(tmp_res, &c, 1) == 0) {
+            break;
+        }
+    }
+    char buf[4];
+    buf[0] = 0; buf[1] = 0; buf[2] = 0;
+    if (tmp_sum > 99) {
+        buf[0] = (tmp_sum / 100) + '0';
+    }
+    if (tmp_sum > 9) {
+        buf[1] = ((tmp_sum / 10) % 10) + '0';
+    }
+    buf[2] = (tmp_sum % 100) + '0';
+    buf[3] = ',';
+    write(res, buf, 4);
+    close(tmp_res);
+    return;
+}
+
+void write_sum (int res, int sum) {
+    char buf[7];
+    memset(buf, 0, 7);
+    buf[6] = (sum % 10) + '0';
+    if (sum > 9) {
+        buf[5] = (sum / 10 % 10) + '0';
+    }
+    if (sum > 99) {
+        buf[4] = (sum / 100 % 10) + '0';
+    }
+    if (sum > 999) {
+        buf[3] = (sum / 1000 % 10 ) + '0';
+    }
+    if (sum > 9999) {
+        buf[2] = (sum / 10000 % 10 ) + '0';
+    }
+    if (sum > 99999) {
+        buf[1] = (sum / 100000 % 10 ) + '0';
+    }
+    if (sum > 999999) {
+        buf[0] = (sum / 1000000 % 10 ) + '0';
+    }
+    write(res, buf, 7);
+    write(res, "\n", 1);
 }
 
 void testing (int users, int tasks, int score_type, char *contest) {
@@ -172,28 +235,26 @@ void testing (int users, int tasks, int score_type, char *contest) {
             int wstatus;
             wait(&wstatus);
             if (WEXITSTATUS(wstatus) != 0) {
-                printf("user = %d, task = %c failed\n", u, cur_task);
-                write(res, "-,", 2);
+                printf("\nuser = %d, task = %c failed\n", u, cur_task);
+                if (score_type == 0) {
+                    write(res, "-,", 2);
+                } else {
+                    write(res, "0,", 2);
+                }
                 free(test_dir);
                 free(code_dir);
                 continue;
             }
             printf("\n");
-            write_to_res(res, u, score_type, &sum);
+            if (score_type == 0) {
+                write_to_res_0(res, u, &sum);
+            } else {
+                write_to_res_1(res, u, &sum);
+            }
             free(test_dir);
             free(code_dir);
         }
-        if (sum <= 9) {
-            char buf[1];
-            buf[0] = sum + '0';
-            write(res, buf, 1);
-        } else {
-            char buf[2];
-            buf[0] = (sum / 10) + '0';
-            buf[1] = (sum % 10) + '0';
-            write(res, buf, 2);
-        }
-        write(res, "\n", 1);
+        write_sum(res, sum);
         free(user_dir);
     }
     close(res);
